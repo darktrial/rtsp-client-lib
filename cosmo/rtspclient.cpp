@@ -1,15 +1,12 @@
-#include "liveMedia.hh"
-#include "BasicUsageEnvironment.hh"
 #include "rtspclient.hh"
-
 
 void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString);
 void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString);
 void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultString);
-void subsessionAfterPlaying(void *clientData); 
+void subsessionAfterPlaying(void *clientData);
 void subsessionByeHandler(void *clientData, char const *reason);
 void streamTimerHandler(void *clientData);
-void openURL(UsageEnvironment &env, char const *progName, char const *rtspURL);
+void openURL(UsageEnvironment &env, char const *progName,  RTSPClient *rtspClient, char const *rtspURL);
 void setupNextSubsession(RTSPClient *rtspClient);
 void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
 
@@ -29,9 +26,7 @@ void usage(UsageEnvironment &env, char const *progName)
   env << "\t(where each <rtsp-url-i> is a \"rtsp://\" URL)\n";
 }
 
-char eventLoopWatchVariable = 0;
-
-int main(int argc, char **argv)
+/*int main(int argc, char **argv)
 {
   TaskScheduler *scheduler = BasicTaskScheduler::createNew();
   UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
@@ -47,17 +42,47 @@ int main(int argc, char **argv)
   env->taskScheduler().doEventLoop(&eventLoopWatchVariable);
   return 0;
 
-}
-static unsigned rtspClientCount = 0; 
+}*/
 
-void openURL(UsageEnvironment &env, char const *progName, char const *rtspURL)
+void rtspPlayer::playRTSP(char *url)
 {
-  RTSPClient *rtspClient = ourRTSPClient::createNew(env, rtspURL, RTSP_CLIENT_VERBOSITY_LEVEL, progName);
+  TaskScheduler *scheduler = BasicTaskScheduler::createNew();
+  UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
+  RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
-    env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": " << env.getResultMsg() << "\n";
+    //env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": " << env.getResultMsg() << "\n";
+    std::cout<<"RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
     return;
   }
+  openURL(*env, "RTSP Client", rtspClient, url);
+  env->taskScheduler().doEventLoop(&watchVariable);
+  shutdownStream(rtspClient);
+  env->reclaim();
+  env = NULL;
+  delete scheduler;
+  scheduler = NULL;
+  
+  std::cout<<"RTSP Client: End of stream\n";
+  return;
+}
+
+void rtspPlayer::startRTSP(char *url)
+{
+  watchVariable = 0;
+  std::thread t1(&rtspPlayer::playRTSP, this, url);
+  t1.detach();
+}
+
+void rtspPlayer::stopRTSP()
+{
+  watchVariable = 1;
+}
+
+static unsigned rtspClientCount = 0;
+
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL)
+{
   ++rtspClientCount;
   rtspClient->sendDescribeCommand(continueAfterDESCRIBE);
 }
@@ -66,8 +91,8 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
 {
   do
   {
-    UsageEnvironment &env = rtspClient->envir();                 
-    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs; 
+    UsageEnvironment &env = rtspClient->envir();
+    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
 
     if (resultCode != 0)
     {
@@ -81,7 +106,7 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
         << sdpDescription << "\n";
 
     scs.session = MediaSession::createNew(env, sdpDescription);
-    delete[] sdpDescription; 
+    delete[] sdpDescription;
     if (scs.session == NULL)
     {
       env << *rtspClient << "Failed to create a MediaSession object from the SDP description: " << env.getResultMsg() << "\n";
@@ -100,10 +125,9 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
   shutdownStream(rtspClient);
 }
 
-
 void setupNextSubsession(RTSPClient *rtspClient)
 {
-  UsageEnvironment &env = rtspClient->envir();                 
+  UsageEnvironment &env = rtspClient->envir();
   StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
 
   scs.subsession = scs.iter->next();
@@ -112,7 +136,7 @@ void setupNextSubsession(RTSPClient *rtspClient)
     if (!scs.subsession->initiate())
     {
       env << *rtspClient << "Failed to initiate the \"" << *scs.subsession << "\" subsession: " << env.getResultMsg() << "\n";
-      setupNextSubsession(rtspClient); 
+      setupNextSubsession(rtspClient);
     }
     else
     {
@@ -145,8 +169,8 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
 {
   do
   {
-    UsageEnvironment &env = rtspClient->envir();                 
-    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs; 
+    UsageEnvironment &env = rtspClient->envir();
+    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
 
     if (resultCode != 0)
     {
@@ -174,8 +198,8 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
     }
 
     env << *rtspClient << "Created a data sink for the \"" << *scs.subsession << "\" subsession\n";
-    scs.subsession->miscPtr = rtspClient; 
-    scs.subsession->sink->startPlaying(*(scs.subsession->readSource()),subsessionAfterPlaying, scs.subsession);
+    scs.subsession->miscPtr = rtspClient;
+    scs.subsession->sink->startPlaying(*(scs.subsession->readSource()), subsessionAfterPlaying, scs.subsession);
     if (scs.subsession->rtcpInstance() != NULL)
     {
       scs.subsession->rtcpInstance()->setByeWithReasonHandler(subsessionByeHandler, scs.subsession);
@@ -191,8 +215,8 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 
   do
   {
-    UsageEnvironment &env = rtspClient->envir();                 
-    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs; 
+    UsageEnvironment &env = rtspClient->envir();
+    StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
 
     if (resultCode != 0)
     {
@@ -201,7 +225,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
     }
     if (scs.duration > 0)
     {
-      unsigned const delaySlop = 2; 
+      unsigned const delaySlop = 2;
       scs.duration += delaySlop;
       unsigned uSecsToDelay = (unsigned)(scs.duration * 1000000);
       scs.streamTimerTask = env.taskScheduler().scheduleDelayedTask(uSecsToDelay, (TaskFunc *)streamTimerHandler, rtspClient);
@@ -237,7 +261,7 @@ void subsessionAfterPlaying(void *clientData)
   while ((subsession = iter.next()) != NULL)
   {
     if (subsession->sink != NULL)
-      return; 
+      return;
   }
   shutdownStream(rtspClient);
 }
@@ -261,7 +285,7 @@ void subsessionByeHandler(void *clientData, char const *reason)
 void streamTimerHandler(void *clientData)
 {
   ourRTSPClient *rtspClient = (ourRTSPClient *)clientData;
-  StreamClientState &scs = rtspClient->scs; 
+  StreamClientState &scs = rtspClient->scs;
 
   scs.streamTimerTask = NULL;
   shutdownStream(rtspClient);
@@ -269,8 +293,8 @@ void streamTimerHandler(void *clientData)
 
 void shutdownStream(RTSPClient *rtspClient, int exitCode)
 {
-  UsageEnvironment &env = rtspClient->envir();                 
-  StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs; 
+  UsageEnvironment &env = rtspClient->envir();
+  StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
 
   if (scs.session != NULL)
   {
@@ -287,7 +311,7 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode)
 
         if (subsession->rtcpInstance() != NULL)
         {
-          subsession->rtcpInstance()->setByeHandler(NULL, NULL); 
+          subsession->rtcpInstance()->setByeHandler(NULL, NULL);
         }
 
         someSubsessionsWereActive = True;
@@ -308,7 +332,7 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode)
   }
 }
 
-ourRTSPClient *ourRTSPClient::createNew(UsageEnvironment &env, char const *rtspURL,int verbosityLevel, char const *applicationName, portNumBits tunnelOverHTTPPortNum)
+ourRTSPClient *ourRTSPClient::createNew(UsageEnvironment &env, char const *rtspURL, int verbosityLevel, char const *applicationName, portNumBits tunnelOverHTTPPortNum)
 {
   return new ourRTSPClient(env, rtspURL, verbosityLevel, applicationName, tunnelOverHTTPPortNum);
 }
@@ -323,9 +347,7 @@ ourRTSPClient::~ourRTSPClient()
 {
 }
 
-
-
-StreamClientState::StreamClientState(): iter(NULL), session(NULL), subsession(NULL), streamTimerTask(NULL), duration(0.0)
+StreamClientState::StreamClientState() : iter(NULL), session(NULL), subsession(NULL), streamTimerTask(NULL), duration(0.0)
 {
 }
 
@@ -394,7 +416,7 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
 Boolean DummySink::continuePlaying()
 {
   if (fSource == NULL)
-    return False; 
+    return False;
   fSource->getNextFrame(fReceiveBuffer, DUMMY_SINK_RECEIVE_BUFFER_SIZE,
                         afterGettingFrame, this,
                         onSourceClosure, this);

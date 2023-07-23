@@ -1,3 +1,27 @@
+#include <unistd.h>
+#include <string.h>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include <queue>
+#include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <utility>
+#include <memory>
+#include <thread>
+#include <tuple>
+#include <functional>
+#include <atomic>
+#include <mutex>
+#include <memory>
+#include <chrono>
+#include <random>
+#include <condition_variable>
+#include "liveMedia.hh"
+#include "BasicUsageEnvironment.hh"
+
+
 #define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
 #define REQUEST_STREAMING_OVER_TCP False
 #define DUMMY_SINK_RECEIVE_BUFFER_SIZE 100000
@@ -62,4 +86,15 @@ protected:
 
 public:
   StreamClientState scs;
+};
+
+
+class rtspPlayer
+{
+  char watchVariable;
+  public:
+    void startRTSP(char *url);
+    void stopRTSP();
+  private:
+    void playRTSP(char *url);
 };
