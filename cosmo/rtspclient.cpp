@@ -6,7 +6,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 void subsessionAfterPlaying(void *clientData);
 void subsessionByeHandler(void *clientData, char const *reason);
 void streamTimerHandler(void *clientData);
-void openURL(UsageEnvironment &env, char const *progName,  RTSPClient *rtspClient, char const *rtspURL);
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL);
 void setupNextSubsession(RTSPClient *rtspClient);
 void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
 
@@ -51,8 +51,8 @@ void rtspPlayer::playRTSP(char *url)
   RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
-    //env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": " << env.getResultMsg() << "\n";
-    std::cout<<"RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
+    // env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": " << env.getResultMsg() << "\n";
+    std::cout << "RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
     return;
   }
   openURL(*env, "RTSP Client", rtspClient, url);
@@ -62,8 +62,8 @@ void rtspPlayer::playRTSP(char *url)
   env = NULL;
   delete scheduler;
   scheduler = NULL;
-  
-  std::cout<<"RTSP Client: End of stream\n";
+
+  std::cout << "RTSP Client: End of stream\n";
   return;
 }
 
@@ -386,9 +386,17 @@ void DummySink::afterGettingFrame(void *clientData, unsigned frameSize, unsigned
                                   struct timeval presentationTime, unsigned durationInMicroseconds)
 {
   DummySink *sink = (DummySink *)clientData;
+
   sink->afterGettingFrame(frameSize, numTruncatedBytes, presentationTime, durationInMicroseconds);
 }
+bool DummySink::isIFrame(unsigned char* frameData, unsigned frameSize) {
+  // H.264 NAL unit starts with 0x00 0x00 0x00 0x01 (start code)
+  // The first byte after start code is the NAL unit type (5 bits)
+  // 5th bit is 0 for I-frame, and 1 for P-frame
+  return (frameData[0] & 0x1F) == 0x05; // I-frame NAL unit type
 
+
+}
 void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes,
                                   struct timeval presentationTime, unsigned /*durationInMicroseconds*/)
 {
@@ -410,6 +418,24 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
 #endif
   envir() << "\n";
 #endif
+  char uSecsStr[7];
+  bool isIframe = isIFrame(fReceiveBuffer, frameSize);
+  snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
+
+  // Print the result
+  if (isIframe)
+  {
+    envir() << "codec:" << fSubsession.codecName() << " I-Frame "
+            << " size:" << frameSize << " bytes "
+            << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+  }
+  else
+  {
+    envir() << "codec:" << fSubsession.codecName() << " P-frame "
+            << " size:" << frameSize << " bytes "
+            << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+  }
+
   continuePlaying();
 }
 
