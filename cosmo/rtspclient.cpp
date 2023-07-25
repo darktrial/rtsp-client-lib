@@ -48,12 +48,9 @@ void rtspPlayer::playRTSP(char *url)
 {
   TaskScheduler *scheduler = BasicTaskScheduler::createNew();
   UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
-  // av_register_all();
-  // avcodec_register_all();
   RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
-    // env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": " << env.getResultMsg() << "\n";
     std::cout << "RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
     return;
   }
@@ -471,14 +468,12 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
   envir() << "\n";
 #endif
   char uSecsStr[7];
-  // bool isIframe = isIFrame(fReceiveBuffer, frameSize);
   u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
   u_int8_t *frameData = (u_int8_t *)malloc(frameSize + 4);
   AVPacket packet;
 
   memcpy(frameData, start_code, 4);
   memcpy(frameData + 4, fReceiveBuffer, frameSize);
-  // av_init_packet(&packet);
   av_new_packet(&packet, frameSize + 4);
   packet.data = frameData; //(uint8_t*)fReceiveBuffer;
   packet.size = frameSize + 4;
@@ -498,8 +493,6 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
             << " size:" << frameSize << " bytes "
             << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
   }
-  // av_packet_free(&packet);
-  // av_free_packet(&packet);
   av_packet_unref(&packet);
   free(frameData);
   continuePlaying();
