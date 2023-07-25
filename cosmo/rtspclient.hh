@@ -20,17 +20,16 @@
 #include <condition_variable>
 #include "liveMedia.hh"
 #include "BasicUsageEnvironment.hh"
-extern "C" {
+extern "C"
+{
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 }
 
-
-
 #define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
 #define REQUEST_STREAMING_OVER_TCP False
 #define DUMMY_SINK_RECEIVE_BUFFER_SIZE 100000
-//#define DEBUG_PRINT_EACH_RECEIVED_FRAME 0
+// #define DEBUG_PRINT_EACH_RECEIVED_FRAME 0
 
 class StreamClientState
 {
@@ -68,13 +67,14 @@ private:
 private:
   // redefined virtual functions:
   virtual Boolean continuePlaying();
-// Determine frame type (I-frame or P-frame)
-  bool isIFrame(unsigned char* frameData, unsigned frameSize);
+  // Determine frame type (I-frame or P-frame)
+  bool isIFrame(AVPacket *packet);
 
 private:
   u_int8_t *fReceiveBuffer;
   MediaSubsession &fSubsession;
   char *fStreamId;
+  AVCodecContext *pCodecCtx;
 };
 
 class ourRTSPClient : public RTSPClient
@@ -95,13 +95,14 @@ public:
   StreamClientState scs;
 };
 
-
 class rtspPlayer
 {
   char watchVariable;
-  public:
-    void startRTSP(char *url);
-    void stopRTSP();
-  private:
-    void playRTSP(char *url);
+
+public:
+  void startRTSP(char *url);
+  void stopRTSP();
+
+private:
+  void playRTSP(char *url);
 };
