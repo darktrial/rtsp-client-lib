@@ -6,7 +6,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 void subsessionAfterPlaying(void *clientData);
 void subsessionByeHandler(void *clientData, char const *reason);
 void streamTimerHandler(void *clientData);
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL);
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator* authenticator);
 void setupNextSubsession(RTSPClient *rtspClient);
 void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
 
@@ -48,19 +48,22 @@ void rtspPlayer::playRTSP(char *url)
 {
   TaskScheduler *scheduler = BasicTaskScheduler::createNew();
   UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
+  Authenticator* authenticator = new Authenticator("username1", "password1");
+  //authenticator->setUsernameAndPassword("username1", "password1");
   RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
     std::cout << "RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
     return;
   }
-  openURL(*env, "RTSP Client", rtspClient, url);
+  openURL(*env, "RTSP Client", rtspClient, url, authenticator);
   env->taskScheduler().doEventLoop(&watchVariable);
   shutdownStream(rtspClient);
   env->reclaim();
   env = NULL;
   delete scheduler;
   scheduler = NULL;
+  delete authenticator;
 
   std::cout << "RTSP Client: End of stream\n";
   return;
@@ -80,10 +83,10 @@ void rtspPlayer::stopRTSP()
 
 static unsigned rtspClientCount = 0;
 
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL)
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator* authenticator)
 {
   ++rtspClientCount;
-  rtspClient->sendDescribeCommand(continueAfterDESCRIBE);
+  rtspClient->sendDescribeCommand(continueAfterDESCRIBE, authenticator);
 }
 
 void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString)
