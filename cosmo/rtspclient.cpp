@@ -6,7 +6,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 void subsessionAfterPlaying(void *clientData);
 void subsessionByeHandler(void *clientData, char const *reason);
 void streamTimerHandler(void *clientData);
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator* authenticator);
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator);
 void setupNextSubsession(RTSPClient *rtspClient);
 void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
 
@@ -30,26 +30,31 @@ void rtspPlayer::playRTSP(const char *url, const char *username, const char *pas
 {
   TaskScheduler *scheduler = BasicTaskScheduler::createNew();
   UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
-  Authenticator* authenticator = NULL;
+  Authenticator *authenticator = NULL;
   if (username != NULL && password != NULL)
     authenticator = new Authenticator(username, password);
 
   RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
-    std::cout << "RTSP Client: Failed to create a RTSP client for URL \"" << url << "\": " << env->getResultMsg() << "\n";
+    std::cout << "Cant allocate RTSP client memory" << std::endl;
     return;
   }
+  ((ourRTSPClient *)rtspClient)->rtspClientCount = 0;
+  ((ourRTSPClient *)rtspClient)->watchVariable = &watchVariable;
+  ((ourRTSPClient *)rtspClient)->isClosed = false;
   openURL(*env, "RTSP Client", rtspClient, url, authenticator);
   env->taskScheduler().doEventLoop(&watchVariable);
-  shutdownStream(rtspClient);
+  std::cout << "RTSP Client: Exiting event loop" << std::endl;
+  if (((ourRTSPClient *)rtspClient)->isClosed == false) 
+    shutdownStream(rtspClient);
+  
   env->reclaim();
   env = NULL;
   delete scheduler;
   scheduler = NULL;
   delete authenticator;
-
-  std::cout << "RTSP Client: End of stream\n";
+  // std::cout << "RTSP Client: End of stream\n";
   return;
 }
 
@@ -65,14 +70,12 @@ void rtspPlayer::stopRTSP()
   watchVariable = 1;
 }
 
-static unsigned rtspClientCount = 0;
-
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator* authenticator)
+void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator)
 {
-  ++rtspClientCount;
-  if (authenticator!=NULL)
+  ((ourRTSPClient *)rtspClient)->rtspClientCount++;
+  if (authenticator != NULL)
     rtspClient->sendDescribeCommand(continueAfterDESCRIBE, authenticator);
-  else 
+  else
     rtspClient->sendDescribeCommand(continueAfterDESCRIBE);
 }
 
@@ -314,11 +317,10 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode)
   }
 
   env << *rtspClient << "Closing the stream.\n";
+  ((ourRTSPClient *)rtspClient)->isClosed = true;
+  ((ourRTSPClient *)rtspClient)->rtspClientCount--;
+  *((ourRTSPClient *)rtspClient)->watchVariable = 1;
   Medium::close(rtspClient);
-  if (--rtspClientCount == 0)
-  {
-    exit(exitCode);
-  }
 }
 
 ourRTSPClient *ourRTSPClient::createNew(UsageEnvironment &env, char const *rtspURL, int verbosityLevel, char const *applicationName, portNumBits tunnelOverHTTPPortNum)

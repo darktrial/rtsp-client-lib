@@ -28,7 +28,7 @@ extern "C"
 
 #define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
 #define REQUEST_STREAMING_OVER_TCP False
-#define DUMMY_SINK_RECEIVE_BUFFER_SIZE 100000
+#define DUMMY_SINK_RECEIVE_BUFFER_SIZE 1048576//100000 
 // #define DEBUG_PRINT_EACH_RECEIVED_FRAME 0
 
 class StreamClientState
@@ -80,6 +80,9 @@ private:
 class ourRTSPClient : public RTSPClient
 {
 public:
+  unsigned rtspClientCount;
+  char *watchVariable;
+  bool isClosed;
   static ourRTSPClient *createNew(UsageEnvironment &env, char const *rtspURL,
                                   int verbosityLevel = 0,
                                   char const *applicationName = NULL,
@@ -100,6 +103,7 @@ class rtspPlayer
   char watchVariable;
 
 public:
+  bool isPlaying;
   void startRTSP(const char *url, const char *username, const char *password);
   void stopRTSP();
 

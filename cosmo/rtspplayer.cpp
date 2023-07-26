@@ -8,4 +8,5 @@ int main(int argc,char *argv[])
     sleep(3);
     player->stopRTSP();
     sleep(1);
+    delete(player);
 }
