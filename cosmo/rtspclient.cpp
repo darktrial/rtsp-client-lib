@@ -200,7 +200,7 @@ static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *res
           << "\" subsession: " << env.getResultMsg() << "\n";
       break;
     }
-
+    ((DummySink *)scs.subsession->sink)->player = ((ourRTSPClient *)rtspClient)->player;
     env << *rtspClient << "Created a data sink for the \"" << *scs.subsession << "\" subsession\n";
     scs.subsession->miscPtr = rtspClient;
     scs.subsession->sink->startPlaying(*(scs.subsession->readSource()), subsessionAfterPlaying, scs.subsession);
@@ -476,7 +476,8 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
   u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
   u_int8_t *frameData = (u_int8_t *)malloc(frameSize + 4);
   AVPacket packet;
-
+  if (this->player->onFrameData != NULL)
+    this->player->onFrameData(fReceiveBuffer, fSubsession.codecName(), frameSize, numTruncatedBytes, presentationTime);
   memcpy(frameData, start_code, 4);
   memcpy(frameData + 4, fReceiveBuffer, frameSize);
   av_new_packet(&packet, frameSize + 4);
@@ -486,7 +487,7 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
   snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
 
   // Print the result
-  if (isIframe)
+  /*if (isIframe)
   {
     envir() << " codec:" << fSubsession.codecName() << " I-Frame "
             << " size:" << frameSize << " bytes "
@@ -497,7 +498,7 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
     envir() << " codec:" << fSubsession.codecName() << " P-frame "
             << " size:" << frameSize << " bytes "
             << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
-  }
+  }*/
   av_packet_unref(&packet);
   free(frameData);
   continuePlaying();
