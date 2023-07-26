@@ -26,30 +26,14 @@ void usage(UsageEnvironment &env, char const *progName)
   env << "\t(where each <rtsp-url-i> is a \"rtsp://\" URL)\n";
 }
 
-/*int main(int argc, char **argv)
+void rtspPlayer::playRTSP(const char *url, const char *username, const char *password)
 {
   TaskScheduler *scheduler = BasicTaskScheduler::createNew();
   UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
-  if (argc < 2)
-  {
-    usage(*env, argv[0]);
-    return 1;
-  }
-  for (int i = 1; i <= argc - 1; ++i)
-  {
-    openURL(*env, argv[0], argv[i]);
-  }
-  env->taskScheduler().doEventLoop(&eventLoopWatchVariable);
-  return 0;
+  Authenticator* authenticator = NULL;
+  if (username != NULL && password != NULL)
+    authenticator = new Authenticator(username, password);
 
-}*/
-
-void rtspPlayer::playRTSP(char *url)
-{
-  TaskScheduler *scheduler = BasicTaskScheduler::createNew();
-  UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
-  Authenticator* authenticator = new Authenticator("username1", "password1");
-  //authenticator->setUsernameAndPassword("username1", "password1");
   RTSPClient *rtspClient = ourRTSPClient::createNew(*env, url, RTSP_CLIENT_VERBOSITY_LEVEL, "RTSP Client");
   if (rtspClient == NULL)
   {
@@ -69,10 +53,10 @@ void rtspPlayer::playRTSP(char *url)
   return;
 }
 
-void rtspPlayer::startRTSP(char *url)
+void rtspPlayer::startRTSP(const char *url, const char *username, const char *password)
 {
   watchVariable = 0;
-  std::thread t1(&rtspPlayer::playRTSP, this, url);
+  std::thread t1(&rtspPlayer::playRTSP, this, url, username, password);
   t1.detach();
 }
 
@@ -86,7 +70,10 @@ static unsigned rtspClientCount = 0;
 void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator* authenticator)
 {
   ++rtspClientCount;
-  rtspClient->sendDescribeCommand(continueAfterDESCRIBE, authenticator);
+  if (authenticator!=NULL)
+    rtspClient->sendDescribeCommand(continueAfterDESCRIBE, authenticator);
+  else 
+    rtspClient->sendDescribeCommand(continueAfterDESCRIBE);
 }
 
 void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString)

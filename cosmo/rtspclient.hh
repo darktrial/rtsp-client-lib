@@ -100,9 +100,9 @@ class rtspPlayer
   char watchVariable;
 
 public:
-  void startRTSP(char *url);
+  void startRTSP(const char *url, const char *username, const char *password);
   void stopRTSP();
 
 private:
-  void playRTSP(char *url);
+  void playRTSP(const char *url, const char *username, const char *password);
 };
