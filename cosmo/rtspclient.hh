@@ -31,6 +31,27 @@ extern "C"
 #define DUMMY_SINK_RECEIVE_BUFFER_SIZE 1048576//100000 
 // #define DEBUG_PRINT_EACH_RECEIVED_FRAME 0
 
+enum retcode
+{
+    OK = 1,
+    FAIL,
+    ERR_INVALID_PARAM,
+    ERR_TIMEOUT,
+    ERR_NOT_IMPLEMENTED,
+    ERR_NOT_FOUND,
+    ERR_NOT_SUPPORT,
+    ERR_NOT_READY,
+    ERR_NOT_EXIST,
+    ERR_NOT_INIT,
+    ERR_NOT_MATCH,
+    ERR_NOT_ENOUGH_SPACE,
+    ERR_NOT_ENOUGH_DATA,
+    ERR_NOT_ENOUGH_TIME,
+    ERR_NOT_ENOUGH_RESOURCE,
+    ERR_NOT_ENOUGH_STORAGE,
+    ERR_NOT_ENOUGH_MEMORY
+};
+
 class StreamClientState
 {
 public:
@@ -77,11 +98,23 @@ private:
   AVCodecContext *pCodecCtx;
 };
 
+class rtspPlayer
+{
+public:
+  char watchVariable;
+  bool isPlaying;
+  int startRTSP(const char *url, const char *username, const char *password);
+  void stopRTSP();
+
+private:
+  void playRTSP(const char *url, const char *username, const char *password);
+};
+
 class ourRTSPClient : public RTSPClient
 {
 public:
+  rtspPlayer *player;
   unsigned rtspClientCount;
-  char *watchVariable;
   bool isClosed;
   static ourRTSPClient *createNew(UsageEnvironment &env, char const *rtspURL,
                                   int verbosityLevel = 0,
@@ -96,17 +129,4 @@ protected:
 
 public:
   StreamClientState scs;
-};
-
-class rtspPlayer
-{
-  char watchVariable;
-
-public:
-  bool isPlaying;
-  void startRTSP(const char *url, const char *username, const char *password);
-  void stopRTSP();
-
-private:
-  void playRTSP(const char *url, const char *username, const char *password);
 };

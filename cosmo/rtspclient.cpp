@@ -1,14 +1,14 @@
 #include "rtspclient.hh"
 
-void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString);
-void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString);
-void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultString);
-void subsessionAfterPlaying(void *clientData);
-void subsessionByeHandler(void *clientData, char const *reason);
-void streamTimerHandler(void *clientData);
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator);
-void setupNextSubsession(RTSPClient *rtspClient);
-void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
+static void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString);
+static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString);
+static void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultString);
+static void subsessionAfterPlaying(void *clientData);
+static void subsessionByeHandler(void *clientData, char const *reason);
+static void streamTimerHandler(void *clientData);
+static void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator);
+static void setupNextSubsession(RTSPClient *rtspClient);
+static void shutdownStream(RTSPClient *rtspClient, int exitCode = 1);
 
 UsageEnvironment &operator<<(UsageEnvironment &env, const RTSPClient &rtspClient)
 {
@@ -41,8 +41,8 @@ void rtspPlayer::playRTSP(const char *url, const char *username, const char *pas
     return;
   }
   ((ourRTSPClient *)rtspClient)->rtspClientCount = 0;
-  ((ourRTSPClient *)rtspClient)->watchVariable = &watchVariable;
   ((ourRTSPClient *)rtspClient)->isClosed = false;
+  ((ourRTSPClient *)rtspClient)->player = this;
   openURL(*env, "RTSP Client", rtspClient, url, authenticator);
   env->taskScheduler().doEventLoop(&watchVariable);
   std::cout << "RTSP Client: Exiting event loop" << std::endl;
@@ -54,23 +54,35 @@ void rtspPlayer::playRTSP(const char *url, const char *username, const char *pas
   delete scheduler;
   scheduler = NULL;
   delete authenticator;
-  // std::cout << "RTSP Client: End of stream\n";
+  isPlaying = false;
   return;
 }
 
-void rtspPlayer::startRTSP(const char *url, const char *username, const char *password)
+int rtspPlayer::startRTSP(const char *url, const char *username, const char *password)
 {
   watchVariable = 0;
+  isPlaying = false;
   std::thread t1(&rtspPlayer::playRTSP, this, url, username, password);
   t1.detach();
+  while (isPlaying == false)
+  {
+    if (watchVariable == 1)
+      return FAIL;
+    usleep(10);
+  }
+  return OK;
 }
 
 void rtspPlayer::stopRTSP()
 {
   watchVariable = 1;
+  while (isPlaying == true)
+  {
+    usleep(10);
+  }
 }
 
-void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator)
+static void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient, char const *rtspURL, Authenticator *authenticator)
 {
   ((ourRTSPClient *)rtspClient)->rtspClientCount++;
   if (authenticator != NULL)
@@ -79,7 +91,7 @@ void openURL(UsageEnvironment &env, char const *progName, RTSPClient *rtspClient
     rtspClient->sendDescribeCommand(continueAfterDESCRIBE);
 }
 
-void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString)
+static void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString)
 {
   do
   {
@@ -117,7 +129,7 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
   shutdownStream(rtspClient);
 }
 
-void setupNextSubsession(RTSPClient *rtspClient)
+static void setupNextSubsession(RTSPClient *rtspClient)
 {
   UsageEnvironment &env = rtspClient->envir();
   StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
@@ -157,7 +169,7 @@ void setupNextSubsession(RTSPClient *rtspClient)
   }
 }
 
-void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString)
+static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString)
 {
   do
   {
@@ -201,7 +213,7 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
   setupNextSubsession(rtspClient);
 }
 
-void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultString)
+static void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultString)
 {
   Boolean success = False;
 
@@ -224,6 +236,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
     }
 
     env << *rtspClient << "Started playing session";
+    ((ourRTSPClient *)rtspClient)->player->isPlaying = true;
     if (scs.duration > 0)
     {
       env << " (for up to " << scs.duration << " seconds)";
@@ -240,7 +253,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
   }
 }
 
-void subsessionAfterPlaying(void *clientData)
+static void subsessionAfterPlaying(void *clientData)
 {
   MediaSubsession *subsession = (MediaSubsession *)clientData;
   RTSPClient *rtspClient = (RTSPClient *)(subsession->miscPtr);
@@ -258,7 +271,7 @@ void subsessionAfterPlaying(void *clientData)
   shutdownStream(rtspClient);
 }
 
-void subsessionByeHandler(void *clientData, char const *reason)
+static void subsessionByeHandler(void *clientData, char const *reason)
 {
   MediaSubsession *subsession = (MediaSubsession *)clientData;
   RTSPClient *rtspClient = (RTSPClient *)subsession->miscPtr;
@@ -274,7 +287,7 @@ void subsessionByeHandler(void *clientData, char const *reason)
   subsessionAfterPlaying(subsession);
 }
 
-void streamTimerHandler(void *clientData)
+static void streamTimerHandler(void *clientData)
 {
   ourRTSPClient *rtspClient = (ourRTSPClient *)clientData;
   StreamClientState &scs = rtspClient->scs;
@@ -283,7 +296,7 @@ void streamTimerHandler(void *clientData)
   shutdownStream(rtspClient);
 }
 
-void shutdownStream(RTSPClient *rtspClient, int exitCode)
+static void shutdownStream(RTSPClient *rtspClient, int exitCode)
 {
   UsageEnvironment &env = rtspClient->envir();
   StreamClientState &scs = ((ourRTSPClient *)rtspClient)->scs;
@@ -319,7 +332,7 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode)
   env << *rtspClient << "Closing the stream.\n";
   ((ourRTSPClient *)rtspClient)->isClosed = true;
   ((ourRTSPClient *)rtspClient)->rtspClientCount--;
-  *((ourRTSPClient *)rtspClient)->watchVariable = 1;
+  ((ourRTSPClient *)rtspClient)->player->watchVariable = 1;
   Medium::close(rtspClient);
 }
 
