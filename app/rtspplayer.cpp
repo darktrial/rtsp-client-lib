@@ -2,12 +2,14 @@
 
 void onFrameArrival(unsigned char *clientData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime)
 {
-    std::cout << "codec name:" << codecName << " frame size:" << frameSize << " presentationTime:" << presentationTime.tv_sec << std::endl;
+    char uSecsStr[7];
+    snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
+    std::cout << "codec name:" << codecName << " frame size:" << frameSize << " presentationTime:" << presentationTime.tv_sec << "." << uSecsStr << std::endl;
 }
 
 void onConnectionSetup(char *codecName)
 {
-    std::cout << "xxxxxxxxxxxxxxxxxxxxxxcodec:" << codecName << std::endl;
+    std::cout << "codec:" << codecName << std::endl;
 }
 
 int main(int argc, char *argv[])
