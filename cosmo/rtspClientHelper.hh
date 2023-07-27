@@ -21,8 +21,8 @@
 #include "liveMedia.hh"
 #include "BasicUsageEnvironment.hh"
 
-#define RTSP_CLIENT_VERBOSITY_LEVEL 0 // by default, print verbose output from each "RTSPClient"
-#define REQUEST_STREAMING_OVER_TCP False
+#define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
+//#define REQUEST_STREAMING_OVER_TCP False
 #define DUMMY_SINK_RECEIVE_BUFFER_SIZE 1048576 // 100000
 // #define DEBUG_PRINT_EACH_RECEIVED_FRAME 0
 
@@ -66,7 +66,8 @@ class rtspPlayer
 public:
   char watchVariable;
   bool isPlaying;
-  int startRTSP(const char *url, const char *username, const char *password);
+  bool overTCP;
+  int startRTSP(const char *url, bool overTCP, const char *username, const char *password);
   void stopRTSP();
   void (*onConnectionSetup)(char *);
   void (*onFrameData)(unsigned char *, const char *, unsigned, unsigned, struct timeval);
@@ -74,6 +75,7 @@ public:
   {
     onFrameData = NULL;
     onConnectionSetup = NULL;
+    overTCP=false;
   }
   ~rtspPlayer()
   {

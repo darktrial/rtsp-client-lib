@@ -58,10 +58,11 @@ void rtspPlayer::playRTSP(const char *url, const char *username, const char *pas
   return;
 }
 
-int rtspPlayer::startRTSP(const char *url, const char *username, const char *password)
+int rtspPlayer::startRTSP(const char *url, bool overTCP, const char *username, const char *password)
 {
   watchVariable = 0;
   isPlaying = false;
+  this->overTCP = overTCP;
   std::thread t1(&rtspPlayer::playRTSP, this, url, username, password);
   t1.detach();
   while (isPlaying == false)
@@ -153,7 +154,7 @@ static void setupNextSubsession(RTSPClient *rtspClient)
         // env << "client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum() + 1;
       }
       // env << ")\n";
-      rtspClient->sendSetupCommand(*scs.subsession, continueAfterSETUP, False, REQUEST_STREAMING_OVER_TCP);
+      rtspClient->sendSetupCommand(*scs.subsession, continueAfterSETUP, False, ((ourRTSPClient *)rtspClient)->player->overTCP);
     }
     return;
   }
