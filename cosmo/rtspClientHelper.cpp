@@ -45,10 +45,10 @@ void rtspPlayer::playRTSP(const char *url, const char *username, const char *pas
   ((ourRTSPClient *)rtspClient)->player = this;
   openURL(*env, "RTSP Client", rtspClient, url, authenticator);
   env->taskScheduler().doEventLoop(&watchVariable);
-  std::cout << "RTSP Client: Exiting event loop" << std::endl;
-  if (((ourRTSPClient *)rtspClient)->isClosed == false) 
+  // std::cout << "RTSP Client: Exiting event loop" << std::endl;
+  if (((ourRTSPClient *)rtspClient)->isClosed == false)
     shutdownStream(rtspClient);
-  
+
   env->reclaim();
   env = NULL;
   delete scheduler;
@@ -106,8 +106,7 @@ static void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *
     }
 
     char *const sdpDescription = resultString;
-    env << *rtspClient << "Got a SDP description:\n"
-        << sdpDescription << "\n";
+    // env << *rtspClient << "Got a SDP description:\n"<< sdpDescription << "\n";
 
     scs.session = MediaSession::createNew(env, sdpDescription);
     delete[] sdpDescription;
@@ -144,16 +143,16 @@ static void setupNextSubsession(RTSPClient *rtspClient)
     }
     else
     {
-      env << *rtspClient << "Initiated the \"" << *scs.subsession << "\" subsession (";
+      // env << *rtspClient << "Initiated the \"" << *scs.subsession << "\" subsession (";
       if (scs.subsession->rtcpIsMuxed())
       {
-        env << "client port " << scs.subsession->clientPortNum();
+        // env << "client port " << scs.subsession->clientPortNum();
       }
       else
       {
-        env << "client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum() + 1;
+        // env << "client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum() + 1;
       }
-      env << ")\n";
+      // env << ")\n";
       rtspClient->sendSetupCommand(*scs.subsession, continueAfterSETUP, False, REQUEST_STREAMING_OVER_TCP);
     }
     return;
@@ -182,16 +181,16 @@ static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *res
       break;
     }
 
-    env << *rtspClient << "Set up the \"" << *scs.subsession << "\" subsession (";
+    // env << *rtspClient << "Set up the \"" << *scs.subsession << "\" subsession (";
     if (scs.subsession->rtcpIsMuxed())
     {
-      env << "client port " << scs.subsession->clientPortNum();
+      // env << "client port " << scs.subsession->clientPortNum();
     }
     else
     {
-      env << "client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum() + 1;
+      // env << "client ports " << scs.subsession->clientPortNum() << "-" << scs.subsession->clientPortNum() + 1;
     }
-    env << ")\n";
+    // env << ")\n";
 
     scs.subsession->sink = DummySink::createNew(env, *scs.subsession, rtspClient->url());
     if (scs.subsession->sink == NULL)
@@ -203,9 +202,9 @@ static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *res
     if (((ourRTSPClient *)rtspClient)->player->onConnectionSetup != NULL)
     {
       ((ourRTSPClient *)rtspClient)->player->onConnectionSetup((char *)(MediaSubsession *)scs.subsession->codecName());
-    }  
+    }
     ((DummySink *)scs.subsession->sink)->player = ((ourRTSPClient *)rtspClient)->player;
-    env << *rtspClient << "Created a data sink for the \"" << *scs.subsession << "\" subsession\n";
+    // env << *rtspClient << "Created a data sink for the \"" << *scs.subsession << "\" subsession\n";
     scs.subsession->miscPtr = rtspClient;
     scs.subsession->sink->startPlaying(*(scs.subsession->readSource()), subsessionAfterPlaying, scs.subsession);
     if (scs.subsession->rtcpInstance() != NULL)
@@ -239,13 +238,13 @@ static void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resu
       scs.streamTimerTask = env.taskScheduler().scheduleDelayedTask(uSecsToDelay, (TaskFunc *)streamTimerHandler, rtspClient);
     }
 
-    env << *rtspClient << "Started playing session";
+    // env << *rtspClient << "Started playing session";
     ((ourRTSPClient *)rtspClient)->player->isPlaying = true;
     if (scs.duration > 0)
     {
       env << " (for up to " << scs.duration << " seconds)";
     }
-    env << "...\n";
+    // env << "...\n";
 
     success = True;
   } while (0);
@@ -333,7 +332,7 @@ static void shutdownStream(RTSPClient *rtspClient, int exitCode)
     }
   }
 
-  env << *rtspClient << "Closing the stream.\n";
+  // env << *rtspClient << "Closing the stream.\n";
   ((ourRTSPClient *)rtspClient)->isClosed = true;
   ((ourRTSPClient *)rtspClient)->rtspClientCount--;
   ((ourRTSPClient *)rtspClient)->player->watchVariable = 1;
