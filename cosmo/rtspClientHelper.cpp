@@ -1,4 +1,4 @@
-#include "rtspclient.hh"
+#include "rtspClientHelper.hh"
 
 static void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultString);
 static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultString);
