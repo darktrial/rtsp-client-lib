@@ -6,8 +6,8 @@
 #### 2. RTSP client APIs
 #####    2.1 Create rtspPlayer object
    `rtspPlayer *player = new rtspPlayer();`
-#####    2.2 Call startRTSP with URL, username(optional), password(optional)
-   `player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", "username1", "password1")`
+#####    2.2 Call startRTSP with URL, overTCP(true or false), username(optional), password(optional)
+   `player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1")`
 #####    2.3 register call back to get video frames 
    `player->onFrameData = onFrameArrival;`
 
