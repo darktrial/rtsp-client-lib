@@ -55,6 +55,7 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
                 << " size:" << frameSize << " bytes "
                 << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
     }
+    free(frameData);
     av_packet_unref(&packet);
 #else
     char uSecsStr[7];
