@@ -20,11 +20,6 @@
 #include <condition_variable>
 #include "liveMedia.hh"
 #include "BasicUsageEnvironment.hh"
-extern "C"
-{
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-}
 
 #define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
 #define REQUEST_STREAMING_OVER_TCP False
@@ -73,10 +68,12 @@ public:
   bool isPlaying;
   int startRTSP(const char *url, const char *username, const char *password);
   void stopRTSP();
+  void (*onConnectionSetup)(char *);
   void (*onFrameData)(unsigned char *, const char *, unsigned, unsigned, struct timeval);
   rtspPlayer()
   {
     onFrameData = NULL;
+    onConnectionSetup = NULL;
   }
   ~rtspPlayer()
   {
@@ -130,12 +127,9 @@ private:
 private:
   // redefined virtual functions:
   virtual Boolean continuePlaying();
-  // Determine frame type (I-frame or P-frame)
-  bool isIFrame(AVPacket *packet);
 
 private:
   u_int8_t *fReceiveBuffer;
   MediaSubsession &fSubsession;
   char *fStreamId;
-  AVCodecContext *pCodecCtx;
 };

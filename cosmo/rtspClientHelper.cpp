@@ -200,6 +200,10 @@ static void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *res
           << "\" subsession: " << env.getResultMsg() << "\n";
       break;
     }
+    if (((ourRTSPClient *)rtspClient)->player->onConnectionSetup != NULL)
+    {
+      ((ourRTSPClient *)rtspClient)->player->onConnectionSetup((char *)(MediaSubsession *)scs.subsession->codecName());
+    }  
     ((DummySink *)scs.subsession->sink)->player = ((ourRTSPClient *)rtspClient)->player;
     env << *rtspClient << "Created a data sink for the \"" << *scs.subsession << "\" subsession\n";
     scs.subsession->miscPtr = rtspClient;
@@ -376,38 +380,6 @@ DummySink::DummySink(UsageEnvironment &env, MediaSubsession &subsession, char co
     : MediaSink(env),
       fSubsession(subsession)
 {
-  AVCodec *codec;
-  if (strcmp(fSubsession.codecName(), "H264") == 0)
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
-  else if (strcmp(fSubsession.codecName(), "H265") == 0)
-    codec = avcodec_find_decoder(AV_CODEC_ID_H265);
-  else
-  {
-    env << "Failed to find the suitable decoder"
-        << "\n";
-    return;
-  }
-  if (!codec)
-  {
-    env << "Failed to find the suitable decoder"
-        << "\n";
-    return;
-  }
-  pCodecCtx = avcodec_alloc_context3(codec);
-  if (!pCodecCtx)
-  {
-    env << "Failed to find the suitable context"
-        << "\n";
-    return;
-  }
-  // Open the codec
-  if (avcodec_open2(pCodecCtx, codec, NULL) < 0)
-  {
-    env << "Failed to open the codec"
-        << "\n";
-    avcodec_free_context(&pCodecCtx);
-    return;
-  }
   fStreamId = strDup(streamId);
   fReceiveBuffer = new u_int8_t[DUMMY_SINK_RECEIVE_BUFFER_SIZE];
 }
@@ -416,7 +388,6 @@ DummySink::~DummySink()
 {
   delete[] fReceiveBuffer;
   delete[] fStreamId;
-  avcodec_free_context(&pCodecCtx);
 }
 
 void DummySink::afterGettingFrame(void *clientData, unsigned frameSize, unsigned numTruncatedBytes,
@@ -426,31 +397,7 @@ void DummySink::afterGettingFrame(void *clientData, unsigned frameSize, unsigned
 
   sink->afterGettingFrame(frameSize, numTruncatedBytes, presentationTime, durationInMicroseconds);
 }
-/*bool DummySink::isIFrame(unsigned char *frameData, unsigned frameSize)
-{
-  // H.264 NAL unit starts with 0x00 0x00 0x00 0x01 (start code)
-  // The first byte after start code is the NAL unit type (5 bits)
-  // 5th bit is 0 for I-frame, and 1 for P-frame
-  return (frameData[0] & 0x1F) == 0x05; // I-frame NAL unit type
-}*/
-bool DummySink::isIFrame(AVPacket *packet)
-{
-  // Decode the packet to get the frame type
-  int got_frame;
-  AVFrame *frame = av_frame_alloc();
-  // avcodec_decode_video2(pCodecCtx, frame, &got_frame, packet);
-  avcodec_send_packet(pCodecCtx, packet);
-  got_frame = avcodec_receive_frame(pCodecCtx, frame);
 
-  // Get the frame type from the decoded frame
-  bool isIframe = false;
-  if (got_frame != AVERROR(EAGAIN) && got_frame != AVERROR_EOF)
-  {
-    isIframe = frame->pict_type == AV_PICTURE_TYPE_I;
-  }
-  av_frame_free(&frame);
-  return isIframe;
-}
 void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes,
                                   struct timeval presentationTime, unsigned /*durationInMicroseconds*/)
 {
@@ -472,35 +419,8 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
 #endif
   envir() << "\n";
 #endif
-  char uSecsStr[7];
-  u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
-  u_int8_t *frameData = (u_int8_t *)malloc(frameSize + 4);
-  AVPacket packet;
   if (this->player->onFrameData != NULL)
     this->player->onFrameData(fReceiveBuffer, fSubsession.codecName(), frameSize, numTruncatedBytes, presentationTime);
-  memcpy(frameData, start_code, 4);
-  memcpy(frameData + 4, fReceiveBuffer, frameSize);
-  av_new_packet(&packet, frameSize + 4);
-  packet.data = frameData; //(uint8_t*)fReceiveBuffer;
-  packet.size = frameSize + 4;
-  bool isIframe = isIFrame(&packet);
-  snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
-
-  // Print the result
-  /*if (isIframe)
-  {
-    envir() << " codec:" << fSubsession.codecName() << " I-Frame "
-            << " size:" << frameSize << " bytes "
-            << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
-  }
-  else
-  {
-    envir() << " codec:" << fSubsession.codecName() << " P-frame "
-            << " size:" << frameSize << " bytes "
-            << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
-  }*/
-  av_packet_unref(&packet);
-  free(frameData);
   continuePlaying();
 }
 
