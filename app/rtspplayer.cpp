@@ -34,8 +34,16 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
     u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
-    u_int8_t *frameData = (u_int8_t *)malloc(frameSize + 4);
+    u_int8_t *frameData;
     AVPacket packet;
+
+    if (strcmp(codecName, "JPEG") == 0)
+    {
+        snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
+        std::cout << "codec:" << codecName << " size:" << frameSize << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+        return;
+    }
+    frameData = (u_int8_t *)malloc(frameSize + 4);
     memcpy(frameData, start_code, 4);
     memcpy(frameData + 4, videoData, frameSize);
     av_new_packet(&packet, frameSize + 4);
@@ -46,14 +54,14 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     if (isIframe)
     {
         std::cout << " codec:" << codecName << " I-Frame "
-                << " size:" << frameSize << " bytes "
-                << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+                  << " size:" << frameSize << " bytes "
+                  << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
     }
     else
     {
         std::cout << " codec:" << codecName << " P-frame "
-                << " size:" << frameSize << " bytes "
-                << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+                  << " size:" << frameSize << " bytes "
+                  << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
     }
     free(frameData);
     av_packet_unref(&packet);
@@ -76,27 +84,27 @@ void onConnectionSetup(char *codecName)
     else
     {
         std::cout << "Failed to find the suitable decoder"
-            << "\n";
+                  << "\n";
         return;
     }
     if (!codec)
     {
         std::cout << "Failed to find the suitable decoder"
-            << "\n";
+                  << "\n";
         return;
     }
     pCodecCtx = avcodec_alloc_context3(codec);
     if (!pCodecCtx)
     {
         std::cout << "Failed to find the suitable context"
-            << "\n";
+                  << "\n";
         return;
     }
     // Open the codec
     if (avcodec_open2(pCodecCtx, codec, NULL) < 0)
     {
         std::cout << "Failed to open the codec"
-            << "\n";
+                  << "\n";
         avcodec_free_context(&pCodecCtx);
         return;
     }
@@ -108,7 +116,7 @@ int main(int argc, char *argv[])
     rtspPlayer *player = new rtspPlayer();
     player->onFrameData = onFrameArrival;
     player->onConnectionSetup = onConnectionSetup;
-    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264",false, "username1", "password1") == OK)
+    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
     {
         sleep(3);
         player->stopRTSP();
