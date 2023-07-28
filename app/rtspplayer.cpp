@@ -40,7 +40,7 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     if (strcmp(codecName, "JPEG") == 0)
     {
         snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
-        std::cout << "codec:" << codecName << " size:" << frameSize << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+        std::cout << "codec:" << codecName << " size:" << frameSize << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
         return;
     }
     frameData = (u_int8_t *)malloc(frameSize + 4);
