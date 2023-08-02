@@ -14,6 +14,7 @@ typedef struct _timeRecords
     long long starttime;
     long long endtime;
     int numberOfFrames;
+    int sizeOfFrames;
 } timeRecords;
 timeRecords tr;
 bool isIFrame(AVPacket *packet)
@@ -87,13 +88,16 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
         {
             tr.starttime = getCurrentTimeMicroseconds();
             tr.numberOfFrames++;
+            tr.sizeOfFrames = frameSize;
         }
         else
         {
             tr.endtime = getCurrentTimeMicroseconds();
             std::cout << "FPS:" << (tr.numberOfFrames * 1000000.0) / (tr.endtime - tr.starttime) << "\n";
+            std::cout << "bit rate:" << (tr.sizeOfFrames) / ((tr.endtime - tr.starttime) / 1000000.0) / 1024 << " KB/s \n";
             tr.starttime =tr.endtime;
             tr.numberOfFrames=1;
+            tr.sizeOfFrames=frameSize;
         }
     }
     else
@@ -102,7 +106,11 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
                   << " size:" << frameSize << " bytes "
                   << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
         if (tr.starttime != 0)
+        {
             tr.numberOfFrames++;
+            tr.sizeOfFrames += frameSize;
+        }
+
     }
     free(frameData);
     av_packet_unref(&packet);
@@ -171,5 +179,6 @@ int main(int argc, char *argv[])
     tr.starttime = 0;
     tr.endtime = 0;
     tr.numberOfFrames = 0;
+    tr.sizeOfFrames = 0;
 #endif
 }
