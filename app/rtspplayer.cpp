@@ -9,6 +9,13 @@ extern "C"
 #include <libavcodec/avcodec.h>
 }
 AVCodecContext *pCodecCtx = NULL;
+typedef struct _timeRecords
+{
+    long long starttime;
+    long long endtime;
+    int numberOfFrames;
+} timeRecords;
+timeRecords tr;
 bool isIFrame(AVPacket *packet)
 {
     int got_frame;
@@ -27,6 +34,26 @@ bool isIFrame(AVPacket *packet)
     av_frame_free(&frame);
     return isIframe;
 }
+
+long long getCurrentTimeMicroseconds()
+{
+#ifdef _WIN32
+    FILETIME currentTime;
+    GetSystemTimePreciseAsFileTime(&currentTime);
+
+    ULARGE_INTEGER uli;
+    uli.LowPart = currentTime.dwLowDateTime;
+    uli.HighPart = currentTime.dwHighDateTime;
+
+    return uli.QuadPart / 10LL;
+#else
+    struct timeval currentTime;
+    gettimeofday(&currentTime, NULL);
+
+    return (long long)currentTime.tv_sec * 1000000LL + currentTime.tv_usec;
+#endif
+}
+
 #endif
 
 void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData)
@@ -56,12 +83,26 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
         std::cout << " codec:" << codecName << " I-Frame "
                   << " size:" << frameSize << " bytes "
                   << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+        if (tr.starttime == 0)
+        {
+            tr.starttime = getCurrentTimeMicroseconds();
+            tr.numberOfFrames++;
+        }
+        else
+        {
+            tr.endtime = getCurrentTimeMicroseconds();
+            std::cout << "FPS:" << (tr.numberOfFrames * 1000000.0) / (tr.endtime - tr.starttime) << "\n";
+            tr.starttime =tr.endtime;
+            tr.numberOfFrames=1;
+        }
     }
     else
     {
         std::cout << " codec:" << codecName << " P-frame "
                   << " size:" << frameSize << " bytes "
                   << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
+        if (tr.starttime != 0)
+            tr.numberOfFrames++;
     }
     free(frameData);
     av_packet_unref(&packet);
@@ -75,8 +116,8 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
 void onConnectionSetup(char *codecName, void *privateData)
 {
     std::cout << "codec:" << codecName << std::endl;
-    if (privateData!=NULL)
-        printf("%s\n",(const char *)privateData);
+    if (privateData != NULL)
+        printf("%s\n", (const char *)privateData);
 #ifdef FFMPEG_HELPER
     AVCodec *codec;
     if (strcmp(codecName, "H264") == 0)
@@ -115,17 +156,20 @@ void onConnectionSetup(char *codecName, void *privateData)
 
 int main(int argc, char *argv[])
 {
-    const char *s="12345";
+    const char *s = "12345";
     rtspPlayer *player = new rtspPlayer((void *)s);
     player->onFrameData = onFrameArrival;
     player->onConnectionSetup = onConnectionSetup;
     if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
     {
-        sleep(3);
+        sleep(10);
         player->stopRTSP();
     }
     delete (player);
 #ifdef FFMPEG_HELPER
     avcodec_free_context(&pCodecCtx);
+    tr.starttime = 0;
+    tr.endtime = 0;
+    tr.numberOfFrames = 0;
 #endif
 }
