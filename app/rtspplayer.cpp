@@ -29,7 +29,7 @@ bool isIFrame(AVPacket *packet)
 }
 #endif
 
-void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime)
+void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData)
 {
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
@@ -72,9 +72,11 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
 #endif
 }
 
-void onConnectionSetup(char *codecName)
+void onConnectionSetup(char *codecName, void *privateData)
 {
     std::cout << "codec:" << codecName << std::endl;
+    if (privateData!=NULL)
+        printf("%s\n",(const char *)privateData);
 #ifdef FFMPEG_HELPER
     AVCodec *codec;
     if (strcmp(codecName, "H264") == 0)
@@ -113,7 +115,8 @@ void onConnectionSetup(char *codecName)
 
 int main(int argc, char *argv[])
 {
-    rtspPlayer *player = new rtspPlayer();
+    const char *s="12345";
+    rtspPlayer *player = new rtspPlayer((void *)s);
     player->onFrameData = onFrameArrival;
     player->onConnectionSetup = onConnectionSetup;
     if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
