@@ -70,7 +70,7 @@ public:
   int startRTSP(const char *url, bool overTCP, const char *username, const char *password);
   void stopRTSP();
   void (*onConnectionSetup)(char *, void *);
-  void (*onFrameData)(unsigned char *, const char *, unsigned, unsigned, struct timeval, void *);
+  void (*onFrameData)(unsigned char *, const char *, unsigned, unsigned, struct timeval, void *, MediaSubsession&);
   void *privateData;
   rtspPlayer(void *data)
   {

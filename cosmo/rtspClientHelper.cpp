@@ -420,7 +420,7 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
   envir() << "\n";
 #endif
   if (this->player->onFrameData != NULL)
-    this->player->onFrameData(fReceiveBuffer, fSubsession.codecName(), frameSize, numTruncatedBytes, presentationTime, this->player->privateData);
+    this->player->onFrameData(fReceiveBuffer, fSubsession.codecName(), frameSize, numTruncatedBytes, presentationTime, this->player->privateData, fSubsession);
   continuePlaying();
 }
 

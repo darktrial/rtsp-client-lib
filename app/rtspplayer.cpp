@@ -57,7 +57,7 @@ long long getCurrentTimeMicroseconds()
 
 #endif
 
-void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData)
+void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData, MediaSubsession &fSubsession)
 {
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
@@ -81,6 +81,21 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
     if (isIframe)
     {
+        if (pCodecCtx->extradata == NULL)
+        {
+            unsigned int SPropRecords = 1;
+            SPropRecord *p_record = parseSPropParameterSets(fSubsession.fmtp_spropparametersets(), SPropRecords);
+            SPropRecord &sps = p_record[0];
+            SPropRecord &pps = p_record[1];
+            int totalsize = 8 + sps.sPropLength + pps.sPropLength;
+            pCodecCtx->extradata = (uint8_t *)malloc(totalsize);
+            pCodecCtx->extradata_size = totalsize;
+            memcpy(pCodecCtx->extradata, start_code, 4);
+            memcpy(pCodecCtx->extradata + 4, sps.sPropBytes, sps.sPropLength);
+            memcpy(pCodecCtx->extradata + 4 + sps.sPropLength, start_code, 4);
+            memcpy(pCodecCtx->extradata + 8 + sps.sPropLength, pps.sPropBytes, pps.sPropLength);
+            delete[] p_record;
+        }
         std::cout << " codec:" << codecName << " I-Frame "
                   << " size:" << frameSize << " bytes "
                   << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
@@ -95,9 +110,9 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
             tr.endtime = getCurrentTimeMicroseconds();
             std::cout << "FPS:" << (tr.numberOfFrames * 1000000.0) / (tr.endtime - tr.starttime) << "\n";
             std::cout << "bit rate:" << (tr.sizeOfFrames) / ((tr.endtime - tr.starttime) / 1000000.0) / 1024 << " KB/s \n";
-            tr.starttime =tr.endtime;
-            tr.numberOfFrames=1;
-            tr.sizeOfFrames=frameSize;
+            tr.starttime = tr.endtime;
+            tr.numberOfFrames = 1;
+            tr.sizeOfFrames = frameSize;
         }
     }
     else
@@ -110,7 +125,6 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
             tr.numberOfFrames++;
             tr.sizeOfFrames += frameSize;
         }
-
     }
     free(frameData);
     av_packet_unref(&packet);
@@ -170,11 +184,13 @@ int main(int argc, char *argv[])
     player->onConnectionSetup = onConnectionSetup;
     if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
     {
-        sleep(10);
+        sleep(3);
         player->stopRTSP();
     }
     delete (player);
 #ifdef FFMPEG_HELPER
+    /*if (pCodecCtx->extradata != NULL)
+        free(pCodecCtx->extradata);*/
     avcodec_free_context(&pCodecCtx);
     tr.starttime = 0;
     tr.endtime = 0;
