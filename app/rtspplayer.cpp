@@ -83,8 +83,7 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     {
         if (pCodecCtx->extradata == NULL)
         {
-            pCodecCtx->extradata=(uint8_t*)malloc(sps_pps_data_size);
-            memcpy(pCodecCtx->extradata, sps_pps_data, sps_pps_data_size);
+            pCodecCtx->extradata = sps_pps_data;
             pCodecCtx->extradata_size = sps_pps_data_size;
         }
         std::cout << " codec:" << codecName << " I-Frame "
@@ -182,6 +181,7 @@ int main(int argc, char *argv[])
 #ifdef FFMPEG_HELPER
     /*if (pCodecCtx->extradata != NULL)
         free(pCodecCtx->extradata);*/
+    pCodecCtx->extradata = NULL;
     avcodec_free_context(&pCodecCtx);
     tr.starttime = 0;
     tr.endtime = 0;
