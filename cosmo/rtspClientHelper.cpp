@@ -406,7 +406,7 @@ void DummySink::afterGettingFrame(void *clientData, unsigned frameSize, unsigned
 void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes,
                                   struct timeval presentationTime, unsigned /*durationInMicroseconds*/)
 {
-   u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
+  u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
 #ifdef DEBUG_PRINT_EACH_RECEIVED_FRAME
   if (fStreamId != NULL)
     envir() << "Stream \"" << fStreamId << "\"; ";

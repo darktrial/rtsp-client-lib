@@ -83,7 +83,7 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     {
         if (pCodecCtx->extradata == NULL)
         {
-            pCodecCtx->extradata= sps_pps_data;
+            pCodecCtx->extradata = sps_pps_data;
             pCodecCtx->extradata_size = sps_pps_data_size;
         }
         std::cout << " codec:" << codecName << " I-Frame "
