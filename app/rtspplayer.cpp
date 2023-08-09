@@ -57,7 +57,7 @@ long long getCurrentTimeMicroseconds()
 
 #endif
 
-void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData, MediaSubsession &fSubsession)
+void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData, unsigned char *sps_pps_data, unsigned int sps_pps_data_size)
 {
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
@@ -83,18 +83,8 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     {
         if (pCodecCtx->extradata == NULL)
         {
-            unsigned int SPropRecords = 1;
-            SPropRecord *p_record = parseSPropParameterSets(fSubsession.fmtp_spropparametersets(), SPropRecords);
-            SPropRecord &sps = p_record[0];
-            SPropRecord &pps = p_record[1];
-            int totalsize = 8 + sps.sPropLength + pps.sPropLength;
-            pCodecCtx->extradata = (uint8_t *)malloc(totalsize);
-            pCodecCtx->extradata_size = totalsize;
-            memcpy(pCodecCtx->extradata, start_code, 4);
-            memcpy(pCodecCtx->extradata + 4, sps.sPropBytes, sps.sPropLength);
-            memcpy(pCodecCtx->extradata + 4 + sps.sPropLength, start_code, 4);
-            memcpy(pCodecCtx->extradata + 8 + sps.sPropLength, pps.sPropBytes, pps.sPropLength);
-            delete[] p_record;
+            pCodecCtx->extradata= sps_pps_data;
+            pCodecCtx->extradata_size = sps_pps_data_size;
         }
         std::cout << " codec:" << codecName << " I-Frame "
                   << " size:" << frameSize << " bytes "
@@ -182,7 +172,7 @@ int main(int argc, char *argv[])
     rtspPlayer *player = new rtspPlayer((void *)s);
     player->onFrameData = onFrameArrival;
     player->onConnectionSetup = onConnectionSetup;
-    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
+    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/surfing.265", false, "username1", "password1") == OK)
     {
         sleep(3);
         player->stopRTSP();
