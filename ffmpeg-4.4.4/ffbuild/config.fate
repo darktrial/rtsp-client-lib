@@ -1,0 +1,1 @@
+config:x86:x86_64:generic:linux:gcc 11 (Ubuntu 11.4.0-1ubuntu1~22.04):--prefix=/home/jemic/rtsp-client-lib/ffmpeg-4.4.4/install --disable-x86asm --disable-everything --enable-decoder='h264,hevc,mjpeg' --enable-protocol='concat,file' --enable-demuxer='h264,hevc,mjpeg' --enable-parser='h264,hevc,mjpeg' --enable-gpl
