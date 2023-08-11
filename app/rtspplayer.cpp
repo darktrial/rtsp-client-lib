@@ -37,7 +37,7 @@ void getFrameStatics(const char *codecName, AVPacket *packet, bool &isIframe, in
     avcodec_send_packet(pCodecCtx, packet);
     got_frame = avcodec_receive_frame(pCodecCtx, frame);
 
-    if (got_frame != AVERROR(EAGAIN) && got_frame != AVERROR_EOF)
+    if (got_frame == 0)
     {
         isIframe = frame->pict_type == AV_PICTURE_TYPE_I;
         if (strcmp(codecName,"H264") == 0)
@@ -99,7 +99,7 @@ long long getCurrentTimeMicroseconds()
 
 #endif
 
-void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData, unsigned char *sps_pps_data, unsigned int sps_pps_data_size)
+void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned frameSize, unsigned numTruncatedBytes, struct timeval presentationTime, void *privateData)
 {
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
@@ -129,14 +129,6 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
     if (isIframe)
     {
-        if (pCodecCtx->extradata == NULL)
-        {
-            if (sps_pps_data_size > 0)
-            {
-                pCodecCtx->extradata = sps_pps_data;
-                pCodecCtx->extradata_size = sps_pps_data_size;
-            }
-        }
         std::cout << " codec:" << codecName << " I-Frame "
                   << " size:" << frameSize << " bytes "
                   << " min_qp:" << min_qp << " max_qp:" << max_qp << " avg_qp:" << avg_qp
