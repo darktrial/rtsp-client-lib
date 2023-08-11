@@ -7,6 +7,9 @@ extern "C"
 {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+extern int ffpg_get_minqp();
+extern int ffpg_get_maxqp();
+extern double ffpg_get_avgqp();
 }
 AVCodecContext *pCodecCtx = NULL;
 typedef struct _timeRecords
@@ -17,23 +20,62 @@ typedef struct _timeRecords
     int sizeOfFrames;
 } timeRecords;
 timeRecords tr;
-bool isIFrame(AVPacket *packet)
+void getFrameStatics(const char *codecName, AVPacket *packet, bool &isIframe, int &min_qp, int &max_qp, double &avg_qp)
 {
     int got_frame;
-    if (!pCodecCtx)
-        return false;
-    AVFrame *frame = av_frame_alloc();
+    int ret = 0;
+    int qp_sum = 0;
+    AVBufferRef *qp_table_buf = NULL;
+    unsigned char *qscale_table = NULL;
 
+    if (!pCodecCtx)
+        return;
+
+    AVFrame *frame = av_frame_alloc();
+    int x, y;
+    //printf("mb_width:%d mb_height:%d mb_stride:%d\n", mb_width, mb_height, mb_stride);
     avcodec_send_packet(pCodecCtx, packet);
     got_frame = avcodec_receive_frame(pCodecCtx, frame);
 
-    bool isIframe = false;
     if (got_frame != AVERROR(EAGAIN) && got_frame != AVERROR_EOF)
     {
         isIframe = frame->pict_type == AV_PICTURE_TYPE_I;
+        if (strcmp(codecName,"H264") == 0)
+        {
+            int mb_width = (pCodecCtx->width + 15) / 16;
+            int mb_height = (pCodecCtx->height + 15) / 16;
+            int mb_stride = mb_width + 1;
+            qp_table_buf = av_buffer_ref(frame->qp_table_buf);
+            qscale_table = qp_table_buf->data;
+            if (qscale_table!= NULL)
+            {
+                for (y = 0; y < mb_height; y++)
+                {
+                    for (x = 0; x < mb_width; x++)
+                    {
+                        qp_sum += qscale_table[x + y * mb_stride];
+                        if (qscale_table[x + y * mb_stride] > max_qp)
+                        {
+                            max_qp = qscale_table[x + y * mb_stride];
+                        }
+                        if (qscale_table[x + y * mb_stride] < min_qp || min_qp == 0)
+                        {
+                            min_qp = qscale_table[x + y * mb_stride];
+                        }
+                    }
+                }
+                avg_qp = (double)qp_sum / (mb_height * mb_width);
+            }
+        }
+        else
+        {
+            min_qp=ffpg_get_minqp();
+            max_qp=ffpg_get_maxqp();
+            avg_qp=ffpg_get_avgqp();
+        }
     }
+    av_buffer_unref(&qp_table_buf);
     av_frame_free(&frame);
-    return isIframe;
 }
 
 long long getCurrentTimeMicroseconds()
@@ -61,10 +103,15 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
 {
 #ifdef FFMPEG_HELPER
     char uSecsStr[7];
+    int min_qp = 0;
+    int max_qp = 0;
+    int qp_sum = 0;
+    double avg_qp = 0;
+    bool isIframe = false;
     u_int8_t start_code[4] = {0x00, 0x00, 0x00, 0x01};
     u_int8_t *frameData;
     AVPacket packet;
-
+    
     if (strcmp(codecName, "JPEG") == 0)
     {
         snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
@@ -75,19 +122,24 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     memcpy(frameData, start_code, 4);
     memcpy(frameData + 4, videoData, frameSize);
     av_new_packet(&packet, frameSize + 4);
-    packet.data = frameData; //(uint8_t*)fReceiveBuffer;
+    packet.data = frameData; 
     packet.size = frameSize + 4;
-    bool isIframe = isIFrame(&packet);
+    // bool isIframe = isIFrame(&packet);
+    getFrameStatics(codecName,&packet, isIframe, min_qp, max_qp, avg_qp);
     snprintf(uSecsStr, 7, "%06u", (unsigned)presentationTime.tv_usec);
     if (isIframe)
     {
         if (pCodecCtx->extradata == NULL)
         {
-            pCodecCtx->extradata = sps_pps_data;
-            pCodecCtx->extradata_size = sps_pps_data_size;
+            if (sps_pps_data_size > 0)
+            {
+                pCodecCtx->extradata = sps_pps_data;
+                pCodecCtx->extradata_size = sps_pps_data_size;
+            }
         }
         std::cout << " codec:" << codecName << " I-Frame "
                   << " size:" << frameSize << " bytes "
+                  << " min_qp:" << min_qp << " max_qp:" << max_qp << " avg_qp:" << avg_qp
                   << "presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
         if (tr.starttime == 0)
         {
@@ -109,6 +161,7 @@ void onFrameArrival(unsigned char *videoData, const char *codecName, unsigned fr
     {
         std::cout << " codec:" << codecName << " P-frame "
                   << " size:" << frameSize << " bytes "
+                  << " min_qp:" << min_qp << " max_qp:" << max_qp << " avg_qp:" << avg_qp
                   << " presentation time:" << (int)presentationTime.tv_sec << "." << uSecsStr << "\n";
         if (tr.starttime != 0)
         {
@@ -172,7 +225,7 @@ int main(int argc, char *argv[])
     rtspPlayer *player = new rtspPlayer((void *)s);
     player->onFrameData = onFrameArrival;
     player->onConnectionSetup = onConnectionSetup;
-    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/surfing.265", false, "username1", "password1") == OK)
+    if (player->startRTSP((const char *)"rtsp://10.170.0.2:8554/slamtv60.264", false, "username1", "password1") == OK)
     {
         sleep(3);
         player->stopRTSP();
@@ -181,8 +234,11 @@ int main(int argc, char *argv[])
 #ifdef FFMPEG_HELPER
     /*if (pCodecCtx->extradata != NULL)
         free(pCodecCtx->extradata);*/
-    pCodecCtx->extradata = NULL;
-    avcodec_free_context(&pCodecCtx);
+    if (pCodecCtx != NULL)
+    {
+        pCodecCtx->extradata = NULL;
+        avcodec_free_context(&pCodecCtx);
+    }
     tr.starttime = 0;
     tr.endtime = 0;
     tr.numberOfFrames = 0;
